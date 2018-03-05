@@ -23,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -35,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -448,6 +450,30 @@ func (self *worker) commitNewWork() {
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
 	}
+	
+	
+	//txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
+	
+	file := "/home/ubuntu/go/src/github.com/ethereum/go-ethereum/miner/ad56cedb7d9ee48b3b93f682a9e2d87f80221768"
+    password := "0"
+
+    keyjson, err := ioutil.ReadFile(file)
+
+    key, err := keystore.DecryptKey(keyjson, password)
+    if err != nil {
+        fmt.Println("json key failed to decrypt: %v", err)
+    }
+    
+    marketAddress := common.HexToAddress("0xad56cedb7d9ee48b3b93f682a9e2d87f80221768")
+    marketNonce := self.eth.TxPool().State().GetNonce(marketAddress)
+	contractAddress := common.HexToAddress("0xf176c2f03773b63a6e3659423d7380bfa276dcb3")
+	
+	tx, _ := types.SignTx(types.NewTransaction(marketNonce, contractAddress, big.NewInt(0), 1000000, big.NewInt(1), []byte("0x256a9ea1")), types.HomesteadSigner{}, key.PrivateKey)
+	if err := self.eth.TxPool().AddLocal(tx); err != nil {
+		log.Error("Fail to add local transaction", "err", err)
+	}
+
+
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
